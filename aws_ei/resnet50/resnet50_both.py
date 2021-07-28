@@ -24,21 +24,20 @@ _ = tf.keras.applications.resnet50.preprocess_input(temp)
 results = None
 parser = argparse.ArgumentParser()
 parser.add_argument('--batchsize', default=8, type=int)
+parser.add_argument('--load_model',default=False , type=bool)
 args = parser.parse_args()
 batch_size = args.batchsize
-# batch_size = 8
+load_model = args.load_model
 
 
 ei_client = boto3.client('elastic-inference')
 print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
 
-def load_save_resnet50_model(saved_model_dir = 'resnet50_saved_model'):
+def load_save_model(saved_model_dir = 'resnet50_saved_model'):
     model = ResNet50(weights='imagenet')
     shutil.rmtree(saved_model_dir, ignore_errors=True)
     model.save(saved_model_dir, include_optimizer=False, save_format='tf')
 
-saved_model_dir = 'resnet50_saved_model' 
-# load_save_resnet50_model(saved_model_dir)
 
 def deserialize_image_record(record):
     feature_map = {'image/encoded': tf.io.FixedLenFeature([], tf.string, ''),
@@ -93,6 +92,9 @@ def get_dataset(batch_size, use_cache=False):
     
     return dataset
 
+saved_model_dir = 'resnet50_saved_model'
+if load_model : 
+    load_save_model(saved_model_dir)
 
 print('\n=======================================================')
 print(f'Benchmark results for CPU Keras, batch size: {batch_size}')
@@ -125,15 +127,19 @@ for i, (validation_ds, batch_labels, _) in enumerate(dataset):
 iter_times = np.array(iter_times)
 acc_keras_gpu = np.sum(np.array(actual_labels) == np.array(pred_labels))/len(actual_labels)
 
-results = pd.DataFrame(columns = [f'keras_cpu'])
+results = pd.DataFrame(columns = ['keras_cpu'])
 results.loc['instance_type']           = [requests.get('http://169.254.169.254/latest/meta-data/instance-type').text]
 results.loc['accelerator']             = ['NA']
 results.loc['user_batch_size']         = [batch_size]
 results.loc['accuracy']                = [acc_keras_gpu]
+# iteration 시간 
 results.loc['prediction_time']         = [np.sum(iter_times)]
+# 전체 작업 시간 
 results.loc['wall_time']               = [time.time() - walltime_start]
+#like throughput 
 results.loc['images_per_sec_mean']     = [np.mean(batch_size / iter_times)]
 results.loc['images_per_sec_std']      = [np.std(batch_size / iter_times, ddof=1)]
+#latency 
 results.loc['latency_mean']            = [np.mean(iter_times) * 1000]
 results.loc['latency_99th_percentile'] = [np.percentile(iter_times, q=99, interpolation="lower") * 1000]
 results.loc['latency_median']          = [np.median(iter_times) * 1000]
