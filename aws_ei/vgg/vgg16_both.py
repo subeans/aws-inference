@@ -23,8 +23,10 @@ _ = tf.keras.applications.vgg16.preprocess_input(temp)
 results = None
 parser = argparse.ArgumentParser()
 parser.add_argument('--batchsize', default=8, type=int)
+parser.add_argument('--load_model',default=False , type=bool)
 args = parser.parse_args()
 batch_size = args.batchsize
+load_model = args.load_model
 
 ei_client = boto3.client('elastic-inference')
 print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
@@ -34,8 +36,6 @@ def load_save_model(saved_model_dir = 'vgg16_saved_model'):
     shutil.rmtree(saved_model_dir, ignore_errors=True)
     model.save(saved_model_dir, include_optimizer=False, save_format='tf')
 
-saved_model_dir = 'vgg16_saved_model' 
-load_save_model(saved_model_dir)
 
 def deserialize_image_record(record):
     feature_map = {'image/encoded': tf.io.FixedLenFeature([], tf.string, ''),
@@ -90,7 +90,10 @@ def get_dataset(batch_size, use_cache=False):
     
     return dataset
 
-
+saved_model_dir = 'vgg16_saved_model' 
+if load_model : 
+    load_save_model(saved_model_dir)
+    
 print('\n=======================================================')
 print(f'Benchmark results for CPU Keras, batch size: {batch_size}')
 print('=======================================================\n')
