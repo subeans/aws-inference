@@ -33,7 +33,7 @@ load_model = args.load_model
 # batch_size = 8
 
 ei_client = boto3.client('elastic-inference')
-print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
+# print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
 
 def load_save_model(saved_model_dir = 'mobilenet_saved_model'):
     model = MobileNet(weights='imagenet')
