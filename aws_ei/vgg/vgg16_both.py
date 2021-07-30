@@ -29,7 +29,7 @@ batch_size = args.batchsize
 load_model = args.load_model
 
 ei_client = boto3.client('elastic-inference')
-print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
+# print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
 
 def load_save_model(saved_model_dir = 'vgg16_saved_model'):
     model = VGG16(weights='imagenet')
