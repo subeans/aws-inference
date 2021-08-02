@@ -10,6 +10,7 @@ import requests
 import time
 import json
 import os
+import argparse
 
 print(tf.__version__) 
 
@@ -18,9 +19,14 @@ temp = tf.zeros([8, 224, 224, 3])
 _ = tf.keras.applications.resnet50.preprocess_input(temp)
 
 results = None
-batch_size = 8
+parser = argparse.ArgumentParser()
+parser.add_argument('--batchsize', default=8, type=int)
+parser.add_argument('--load_model',default=False , type=bool)
+args = parser.parse_args()
+batch_size = args.batchsize
+load_model = args.load_model
 
-def load_save_resnet50_model(saved_model_dir = 'resnet50_saved_model'):
+def load_save_model(saved_model_dir = 'resnet50_saved_model'):
     model = ResNet50(weights='imagenet')
     shutil.rmtree(saved_model_dir, ignore_errors=True)
     model.save(saved_model_dir, include_optimizer=False, save_format='tf')
@@ -83,8 +89,9 @@ print('\n=======================================================')
 print(f'Benchmark results for CPU Keras, batch size: {batch_size}')
 print('=======================================================\n')
 
-saved_model_dir = 'resnet50_saved_model' 
-# load_save_resnet50_model(saved_model_dir)
+saved_model_dir = 'resnet50_saved_model'
+if load_model : 
+    load_save_model(saved_model_dir)
 
 model = tf.keras.models.load_model(saved_model_dir)
 display_every = 5000
