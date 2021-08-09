@@ -9,7 +9,10 @@ XCEPTION_JOB6="/home/ubuntu/aws-elastic-inference/aws_ei/xception/xception_both.
 XCEPTION_JOB7="/home/ubuntu/aws-elastic-inference/aws_ei/xception/xception_both.py --batchsize 64"
 
 echo "XCEPTION"
-python3 $XCEPTION_JOB2
+
+python3 $XCEPTION_JOB1
+sleep 2
+python3 $XCEPTION_JOB2 
 sleep 2
 python3 $XCEPTION_JOB3 
 sleep 2
@@ -20,6 +23,4 @@ sleep 2
 python3 $XCEPTION_JOB6 
 sleep 2
 python3 $XCEPTION_JOB7 
-sleep 2
-python3 $XCEPTION_JOB8 
 sleep 2
