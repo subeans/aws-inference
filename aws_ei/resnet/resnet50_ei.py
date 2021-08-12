@@ -12,6 +12,8 @@ import time
 import json
 import os
 import boto3
+import argparse
+
 
 print(tf.__version__) 
 
@@ -20,18 +22,21 @@ temp = tf.zeros([8, 224, 224, 3])
 _ = tf.keras.applications.resnet50.preprocess_input(temp)
 
 results = None
-batch_size = 8
+parser = argparse.ArgumentParser()
+parser.add_argument('--batchsize', default=8, type=int)
+parser.add_argument('--load_model',default=False , type=bool)
+args = parser.parse_args()
+batch_size = args.batchsize
+load_model = args.load_model
 
 ei_client = boto3.client('elastic-inference')
-print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
+# print(json.dumps(ei_client.describe_accelerators()['acceleratorSet'], indent=1))
 
-def load_save_resnet50_model(saved_model_dir = 'resnet50_saved_model'):
+def load_save_model(saved_model_dir = 'resnet50_saved_model'):
     model = ResNet50(weights='imagenet')
     shutil.rmtree(saved_model_dir, ignore_errors=True)
     model.save(saved_model_dir, include_optimizer=False, save_format='tf')
 
-saved_model_dir = 'resnet50_saved_model' 
-# load_save_resnet50_model(saved_model_dir)
 
 def deserialize_image_record(record):
     feature_map = {'image/encoded': tf.io.FixedLenFeature([], tf.string, ''),
@@ -120,7 +125,7 @@ def ei_predict_benchmark(saved_model_dir, batch_size, accelerator_id):
         iter_times.append(time.time() - start_time)
 
         actual_labels.extend(label for label_list in batch_labels.numpy() for label in label_list)
-        pred_labels.extend(list(np.argmax(pred_prob['probs'], axis=1)))
+        pred_labels.extend(list(np.argmax(pred_prob['predictions'], axis=1)))
 
         if i*batch_size >= display_threshold:
             print(f'Images {i*batch_size}/50000. Average i/s {np.mean(batch_size/np.array(iter_times[-display_every:]))}')
@@ -145,6 +150,10 @@ def ei_predict_benchmark(saved_model_dir, batch_size, accelerator_id):
     print(results.T)
     
     return results, iter_times
+
+saved_model_dir = 'resnet50_saved_model'
+if load_model : 
+    load_save_model(saved_model_dir)
 
 ei_options = [{'ei_acc_id': 0}]
 
