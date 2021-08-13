@@ -136,10 +136,13 @@ results.loc['prediction_time']         = [np.sum(iter_times)]
 results.loc['wall_time']               = [time.time() - walltime_start]
 results.loc['images_per_sec_mean']     = [np.mean(batch_size / iter_times)]
 results.loc['images_per_sec_std']      = [np.std(batch_size / iter_times, ddof=1)]
+results.loc['first_batch_latency']     = [iter_times[0]]
 results.loc['latency_mean']            = [np.mean(iter_times) * 1000]
 results.loc['latency_99th_percentile'] = [np.percentile(iter_times, q=99, interpolation="lower") * 1000]
 results.loc['latency_median']          = [np.median(iter_times) * 1000]
 results.loc['latency_min']             = [np.min(iter_times) * 1000]
+results.loc['first_batch']             = [iter_times[0]]
+results.loc['next_batches_mean']       = [np.mean(iter_times[1:])]
 print(results.T)
 
 def ei_predict_benchmark(saved_model_dir, batch_size, accelerator_id):
@@ -197,6 +200,8 @@ def ei_predict_benchmark(saved_model_dir, batch_size, accelerator_id):
     results.loc['latency_99th_percentile'] = [np.percentile(iter_times, q=99, interpolation="lower") * 1000]
     results.loc['latency_median']          = [np.median(iter_times) * 1000]
     results.loc['latency_min']             = [np.min(iter_times) * 1000]
+    results.loc['first_batch']             = [iter_times[0]]
+    results.loc['next_batches_mean']       = [np.mean(iter_times[1:])]
     print(results.T)
     
     return results, iter_times
