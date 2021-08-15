@@ -233,6 +233,8 @@ def trt_predict_benchmark(precision, batch_size, use_cache=False, display_every=
     results.loc['latency_99th_percentile'] = [np.percentile(iter_times, q=99, interpolation="lower") * 1000]
     results.loc['latency_median']          = [np.median(iter_times) * 1000]
     results.loc['latency_min']             = [np.min(iter_times) * 1000]
+    results.loc['first_batch']             = [iter_times[0]]
+    results.loc['next_batches_mean']       = [np.mean(iter_times[1:])]
     print(results.T)
    
     return results, iter_times
