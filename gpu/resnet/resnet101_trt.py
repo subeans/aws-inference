@@ -164,7 +164,7 @@ def build_tensorrt_engine(precision, batch_size, dataset):
     else:
         converter.convert()
         
-    trt_compiled_model_dir = f'resnet101trt_saved_models/resnet101_{precision}_{batch_size}'
+    trt_compiled_model_dir = f'resnet101_trt_saved_models/resnet101_{precision}_{batch_size}'
     shutil.rmtree(trt_compiled_model_dir, ignore_errors=True)
 
     converter.build(input_fn=partial(build_fn, batch_size, dataset))
