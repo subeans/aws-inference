@@ -178,7 +178,7 @@ def ei_predict_benchmark(saved_model_dir, batch_size, accelerator_id):
         model_feed_dict={'input_1': validation_ds.numpy()}
         start_time = time.time()
         pred_prob = eia_model(model_feed_dict)
-        print(time.time() - start_time)
+#         print(time.time() - start_time)
         iter_times.append(time.time() - start_time)
 
         actual_labels.extend(label for label_list in batch_labels.numpy() for label in label_list)
