@@ -76,12 +76,14 @@ parser.add_argument('--batchsize',default=64,type=int)
 parser.add_argument('--precision',default='FP32',type=str)
 parser.add_argument('--load',default=False,type=bool)
 parser.add_argument('--gpu',default=False,type=bool)
+parser.add_argument('--engines',default=2,type=int)
 args = parser.parse_args()
 load_model = args.model
 batch_size = args.batchsize
 precision = args.precision
 load=args.load
 run_gpu=args.gpu
+num_engine=args.engines
 
 
 def load_save_model(load_model , saved_model_dir = 'resnet50_saved_model'):
@@ -218,17 +220,17 @@ def build_FP_tensorrt_engine(load_model,precision, batch_size, dataset):
     if precision == 'FP32':
         conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(
                                                         precision_mode=trt.TrtPrecisionMode.FP32,
-                                                        max_workspace_size_bytes=8000000000)
+                                                        max_workspace_size_bytes=8000000000,maximum_cached_engines=num_engine)
     elif precision == 'FP16':                                                 
         conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(
                                                         precision_mode=trt.TrtPrecisionMode.FP16,
-                                                        max_workspace_size_bytes=8000000000)
+                                                        max_workspace_size_bytes=8000000000,maximum_cached_engines=num_engine)
     
     elif precision=='INT8':
         conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(
                                                         precision_mode=trt.TrtPrecisionMode.INT8, 
                                                         max_workspace_size_bytes=8000000000, 
-                                                        use_calibration=True)
+                                                        use_calibration=True ,maximum_cached_engines=num_engine )
     #conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(precision_mode=precision.upper(),
     #                                                               max_workspace_size_bytes=(1<<32),
     #                                                               maximum_cached_engines=2)
@@ -248,7 +250,9 @@ def build_FP_tensorrt_engine(load_model,precision, batch_size, dataset):
     #converter.save(output_saved_model_dir=trt_compiled_model_dir)
 
     # shutil.rmtree(trt_compiled_model_dir, ignore_errors=True)
+    print("TensorEngine Build")
     converter.build(input_fn=partial(build_fn, batch_size, dataset))
+    print("tensorRT_SAVED")
     converter.save(output_saved_model_dir=trt_compiled_model_dir)
     print(f'\nOptimized for {precision} and batch size {batch_size}, directory:{trt_compiled_model_dir}\n')
 
@@ -335,7 +339,7 @@ dataset = get_dataset(batch_size)
 if run_gpu :
     print("--------GPU----------")
     predict_GPU(batch_size,saved_model_dir)
-print("------BUILD_TENSORRT-----")
+print("------TENSORRT-----")
 trt_compiled_model_dir = build_FP_tensorrt_engine(load_model,precision, batch_size, dataset)
 print("------TENSORRT_INFERENCE-------")
 trt_predict_benchmark(trt_compiled_model_dir,precision, batch_size, use_cache=False, display_every=100, warm_up=10)
