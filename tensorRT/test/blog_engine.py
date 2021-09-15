@@ -101,27 +101,30 @@ saved_model_dir = 'resnet50_saved_model'
 if load_model : 
     load_save_model(saved_model_dir)
 
-model = tf.keras.models.load_model(saved_model_dir)
-display_every = 5000
-display_threshold = display_every
 
-pred_labels = []
-actual_labels = []
-iter_times = []
+def predict_GPU(batch_size,saved_model_dir):
+    model = tf.keras.models.load_model(saved_model_dir)
+    display_every = 5000
+    display_threshold = display_every
 
-# Get the tf.data.TFRecordDataset object for the ImageNet2012 validation dataset
-dataset = get_dataset(batch_size)  
+    pred_labels = []
+    actual_labels = []
+    iter_times = []
 
-if gpu_run :
+    # Get the tf.data.TFRecordDataset object for the ImageNet2012 validation dataset
+    dataset = get_dataset(batch_size)  
+
     walltime_start = time.time()
     for i, (validation_ds, batch_labels, _) in enumerate(dataset):
         start_time = time.time()
-        pred_prob_keras = model(validation_ds)
+        #pred_prob_keras = model(validation_ds)
+        pred_prob_keras = model.predict(validation_ds)
+
         iter_times.append(time.time() - start_time)
-        
+            
         actual_labels.extend(label for label_list in batch_labels.numpy() for label in label_list)
         pred_labels.extend(list(np.argmax(pred_prob_keras, axis=1)))
-        
+            
         if i*batch_size >= display_threshold:
             print(f'Images {i*batch_size}/50000. Average i/s {np.mean(batch_size/np.array(iter_times[-display_every:]))}')
             display_threshold+=display_every
@@ -282,6 +285,12 @@ if results is None:
     results = pd.DataFrame()
 
 col_name = lambda boption: f'trt_{boption["precision"]}_{boption["batch_size"]}'
+
+if gpu_run:
+    print("---GPU---")
+    predict_GPU(batch_size,saved_model_dir)
+
+
 
 for boption in blist:
     res, it = trt_predict_benchmark(**boption)
