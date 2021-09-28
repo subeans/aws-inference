@@ -1,3 +1,5 @@
+# tensorrt runtime build 
+
 import os
 import time
 import numpy as np
@@ -76,12 +78,14 @@ parser.add_argument('--batchsize',default=64,type=int)
 parser.add_argument('--precision',default='FP32',type=str)
 parser.add_argument('--load',default=False,type=bool)
 parser.add_argument('--gpu',default=False,type=bool)
+parser.add_argument('--engines',default=1,type=int)
 args = parser.parse_args()
 load_model = args.model
 batch_size = args.batchsize
 precision = args.precision
 load=args.load
 run_gpu=args.gpu
+num_engines=args.engines
 
 
 def load_save_model(load_model , saved_model_dir = 'resnet50_saved_model'):
@@ -127,8 +131,8 @@ def val_preprocessing(record):
     
     return image, label, label_text
 
-def get_dataset(batch_size, use_cache=False):
-    data_dir = '/root/datasets/*'
+def get_dataset(batch_size,datafolder,use_cache=False):
+    data_dir = f'/root/{datafolder}/*'
     files = tf.io.gfile.glob(os.path.join(data_dir))
     dataset = tf.data.TFRecordDataset(files)
     
@@ -146,7 +150,6 @@ def get_dataset(batch_size, use_cache=False):
 
 
 def predict_GPU(batch_size,saved_model_dir):
-    model = tf.keras.models.load_model(saved_model_dir)
     display_every = 5000
     display_threshold = display_every
 
@@ -154,10 +157,15 @@ def predict_GPU(batch_size,saved_model_dir):
     actual_labels = []
     iter_times = []
 
-    # Get the tf.data.TFRecordDataset object for the ImageNet2012 validation dataset
-    dataset = get_dataset(batch_size)  
+    dataset = get_dataset(batch_size,'datasets')  
 
     walltime_start = time.time()
+
+    model = tf.keras.models.load_model(saved_model_dir)
+    
+
+    # Get the tf.data.TFRecordDataset object for the ImageNet2012 validation dataset
+
     N=0
     warm_up=50
     for i, (validation_ds, batch_labels, _) in enumerate(dataset):
@@ -207,25 +215,29 @@ def calibrate_fn(n_calib, batch_size, dataset):
             break
         yield (calib_image,)
 
-def build_FP_tensorrt_engine(load_model,precision, batch_size, dataset):
+def build_FP_tensorrt_engine(load_model,precision, batch_size):
     from tensorflow.python.compiler.tensorrt import trt_convert as trt
+
+    dataset = get_dataset(batch_size,'build_datasets')
+
     if precision == 'FP32':
         conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(
                                                         precision_mode=trt.TrtPrecisionMode.FP32,
+                                                        maximum_cached_engines=num_engines,
                                                         max_workspace_size_bytes=8000000000)
     elif precision == 'FP16':                                                 
         conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(
                                                         precision_mode=trt.TrtPrecisionMode.FP16,
+                                                        maximum_cached_engines=num_engines,
                                                         max_workspace_size_bytes=8000000000)
     
     elif precision=='INT8':
         conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(
                                                         precision_mode=trt.TrtPrecisionMode.INT8, 
                                                         max_workspace_size_bytes=8000000000, 
+                                                        maximum_cached_engines=num_engines,
                                                         use_calibration=True)
-    #conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(precision_mode=precision.upper(),
-    #                                                               max_workspace_size_bytes=(1<<32),
-    #                                                               maximum_cached_engines=2)
+
     
     converter = trt.TrtGraphConverterV2(input_saved_model_dir=f'{load_model}_saved_model',
                                         conversion_params=conversion_params)
@@ -253,7 +265,7 @@ def trt_predict_benchmark(trt_compiled_model_dir,precision, batch_size, use_cach
     print(f'Benchmark results for precision: {precision}, batch size: {batch_size}')
     print('=======================================================\n')
     
-    dataset = get_dataset(batch_size)
+    dataset = get_dataset(batch_size,'datasets')
     
     # If caching is enabled, cache dataset for better i/o performance
     if use_cache:
@@ -265,20 +277,23 @@ def trt_predict_benchmark(trt_compiled_model_dir,precision, batch_size, use_cach
 
     # saved_model_loaded = tf.saved_model.load(input_saved_model, tags=[tag_constants.SERVING])
     # trt_compiled_model_dir = build_FP_tensorrt_engine(precision, batch_size, dataset)
-    saved_model_trt = tf.saved_model.load(trt_compiled_model_dir, tags=[tag_constants.SERVING])
-    model_trt = saved_model_trt.signatures['serving_default']
-
     pred_labels = []
     actual_labels = []
     iter_times = []
     
     display_every = 5000
     display_threshold = display_every
+    
+    walltime_start = time.time()
+
+    saved_model_trt = tf.saved_model.load(trt_compiled_model_dir, tags=[tag_constants.SERVING])
+    model_trt = saved_model_trt.signatures['serving_default']
+
+    
     initial_time = time.time()
 
 
 
-    walltime_start = time.time()
     N=0
     for i, (validation_ds, batch_labels, _) in enumerate(dataset):
         N+=1
@@ -324,11 +339,10 @@ saved_model_dir = f'{load_model}_saved_model'
 if load :
     load_save_model(load_model,saved_model_dir)
 
-dataset = get_dataset(batch_size)
 if run_gpu :
     print("--------GPU----------")
     predict_GPU(batch_size,saved_model_dir)
 print("------BUILD_TENSORRT-----")
-trt_compiled_model_dir = build_FP_tensorrt_engine(load_model,precision, batch_size, dataset)
+trt_compiled_model_dir = build_FP_tensorrt_engine(load_model,precision, batch_size)
 print("------TENSORRT_INFERENCE-------")
 trt_predict_benchmark(trt_compiled_model_dir,precision, batch_size, use_cache=False, display_every=100, warm_up=10)
