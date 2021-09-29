@@ -11,20 +11,20 @@ import argparse
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras.applications import ( 
-    vgg16,
+   vgg16,
     vgg19,
-    resnet,
+    #resnet,
     resnet50,
     resnet_v2,
     inception_v3,
-    inception_resnet_v2,
+    #inception_resnet_v2,
     mobilenet,
     mobilenet_v2,
-    densenet,
+    #densenet,
     nasnet,
-    xception,
-
+    #xception,
 )
+
 from tensorflow.keras.preprocessing import image
 from tensorflow.python.saved_model import tag_constants, signature_constants
 from tensorflow.python.framework import convert_to_constants
@@ -41,29 +41,31 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model',default='resnet50',type=str)
 parser.add_argument('--batchsize',default=8 , type=int)
 parser.add_argument('--precision',default='fp32', type=str)
+parser.add_argument('--engines',default=1,type=int)
 parser.add_argument('--size',default=224,type=int)
 args = parser.parse_args()
 model = args.model 
 batch_size = args.batchsize
 precision = args.precision
 size=args.size
+num_engines=args.engines
 
 models = {
-    'xception':xception,
+    #'xception':xception,
     'vgg16':vgg16,
     'vgg19':vgg19,
     'resnet50':resnet50,
-    'resnet101':resnet,
-    'resnet152':resnet,
+    #'resnet101':resnet,
+    #'resnet152':resnet,
     'resnet50_v2':resnet_v2,
     'resnet101_v2':resnet_v2,
     'resnet152_v2':resnet_v2,
     'inception_v3':inception_v3,
-    'inception_resnet_v2':inception_resnet_v2,
+    #'inception_resnet_v2':inception_resnet_v2,
     'mobilenet':mobilenet,
-    'densenet121':densenet,
-    'densenet169':densenet,
-    'densenet201':densenet,
+    #'densenet121':densenet,
+    #'densenet169':densenet,
+    #'densenet201':densenet,
     'nasnetlarge':nasnet,
     'nasnetmobile':nasnet,
     'mobilenet_v2':mobilenet_v2
@@ -106,7 +108,7 @@ def val_preprocessing(record):
     return image, label, label_text
 
 def get_dataset(batch_size, use_cache=False):
-    data_dir = '/root/datasets/*'
+    data_dir = '/root/build_datasets/*'
     files = tf.io.gfile.glob(os.path.join(data_dir))
     dataset = tf.data.TFRecordDataset(files)
     
@@ -141,7 +143,8 @@ def build_tensorrt_engine(precision, batch_size, dataset,model):
     input_saved_model = f'{model}_saved_model'
     conversion_params = trt.DEFAULT_TRT_CONVERSION_PARAMS._replace(precision_mode=precision.upper(),
                                                                    max_workspace_size_bytes=(1<<32),
-                                                                   maximum_cached_engines=2)
+                                                                   maximum_cached_engines=num_engines)
+
     converter = trt.TrtGraphConverterV2(input_saved_model_dir=input_saved_model,
                                         conversion_params=conversion_params)
     
@@ -165,5 +168,8 @@ dataset = get_dataset(batch_size)
 
 trt_compiled_model_dir = build_tensorrt_engine(precision, batch_size, dataset,model)
 
+print("================================================")
+print(trt_compiled_model_dir)
+print("================================================")
 
 
