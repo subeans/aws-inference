@@ -40,11 +40,13 @@ results = None
 parser = argparse.ArgumentParser()
 parser.add_argument('--model',default='resnet50',type=str)
 parser.add_argument('--batchsize',default=8 , type=int)
+parser.add_argument('--load_batchsize',default=8 , type=int)
 parser.add_argument('--precision',default='fp32', type=str)
 parser.add_argument('--size',default=224,type=int)
 args = parser.parse_args()
 model = args.model 
 batch_size = args.batchsize
+model_batchsize=args.load_batchsize
 precision = args.precision
 size=args.size
 
@@ -138,8 +140,12 @@ def trt_predict_benchmark(precision, batch_size, use_cache=False, display_every=
             continue
         print(f'Finished caching {time.time() - start_time}')
 
-    trt_compiled_model_dir = f'{model}_trt_saved_models/{model}_{precision}_{batch_size}'
+    # LOAD 만 해서 inference 진행
+    trt_compiled_model_dir = f'{model}_trt_saved_models/{model}_{precision}_{model_batchsize}'
     # trt_compiled_model_dir = build_tensorrt_engine(precision, batch_size, dataset)
+
+    walltime_start = time.time()
+
     saved_model_trt = tf.saved_model.load(trt_compiled_model_dir, tags=[tag_constants.SERVING])
     model_trt = saved_model_trt.signatures[signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
     
@@ -151,7 +157,6 @@ def trt_predict_benchmark(precision, batch_size, use_cache=False, display_every=
     display_threshold = display_every
     initial_time = time.time()
     
-    walltime_start = time.time()
     for i, (validation_ds, batch_labels, _) in enumerate(dataset):
         if i==0:
             for w in range(warm_up):
