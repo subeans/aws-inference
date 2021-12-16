@@ -47,12 +47,12 @@ def test_resnet(data,batch_size,image_shape):
     lib.export_library(f"./resnet50_{batch_size}_{target}_deploy_lib.tar")
 
 
-    # data_tvm = tvm.nd.array(data.astype('float32'))
-    # e = module.module.time_evaluator("run", ctx, number=20, repeat=10)
-    # t = e(data_tvm).results
-    # t = np.array(t) * 1000
+    data_tvm = tvm.nd.array(data.astype('float32'))
+    e = module.module.time_evaluator("run", ctx, number=5, repeat=1)
+    t = e(data_tvm).results
+    t = np.array(t) * 1000
 
-    # print('{} (batch={}): {} ms'.format('resnet50', batch_size, t.mean()))
+    print('{} (batch={}): {} ms'.format('resnet50', batch_size, t.mean()))
 
 def test_mobilenet(data,batch_size,image_shape):
     mod, params = mobilenet.get_workload( batch_size=batch_size)
@@ -71,10 +71,11 @@ def test_mobilenet(data,batch_size,image_shape):
     out = module.get_output(0).asnumpy()
     lib.export_library(f"./mobilenet_{batch_size}_{target}_deploy_lib.tar")
 
-    # data_tvm = tvm.nd.array(data.astype('float32'))
-    # e = module.module.time_evaluator("run", ctx, number=20, repeat=10)
-    # t = e(data_tvm).results
-    # t = np.array(t) * 1000
+    data_tvm = tvm.nd.array(data.astype('float32'))
+    e = module.module.time_evaluator("run", ctx, number=5, repeat=1)
+    t = e(data_tvm).results
+    t = np.array(t) * 1000
+    print('{} (batch={}): {} ms'.format('mobilenet', batch_size, t.mean()))
 
 
 def test_inception(data,batch_size,image_shape):
@@ -94,10 +95,11 @@ def test_inception(data,batch_size,image_shape):
     out = module.get_output(0).asnumpy()
     lib.export_library(f"./inception_v3_{batch_size}_{target}_deploy_lib.tar")
 
-    # data_tvm = tvm.nd.array(data.astype('float32'))
-    # e = module.module.time_evaluator("run", ctx, number=20, repeat=10)
-    # t = e(data_tvm).results
-    # t = np.array(t) * 1000
+    data_tvm = tvm.nd.array(data.astype('float32'))
+    e = module.module.time_evaluator("run", ctx, number=5, repeat=1)
+    t = e(data_tvm).results
+    t = np.array(t) * 1000
+    print('{} (batch={}): {} ms'.format('inceptionV3', batch_size, t.mean()))
 
 if __name__ == "__main__":
     batch_size = 16
