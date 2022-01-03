@@ -1,3 +1,4 @@
+import itertools
 import tensorflow as tf
 from tvm import relay
 import numpy as np 
@@ -12,11 +13,17 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model',default='resnet50' , type=str)
+parser.add_argument('--batchsize',default=1 , type=int)
+parser.add_argument('--imgsize',default=224 , type=int)
+
+
 args = parser.parse_args()
+
 model_name = args.model
+batch_size = args.batchsize
+size = args.imgsize
 # model_name = "resnet50"
-batch_size = 16
-size=224
+# size=224
 
 def make_dataset(batch_size,size):
     image_shape = (size, size,3)
@@ -48,6 +55,7 @@ def wrap_frozen_graph(graph_def, inputs, outputs, print_graph=False):
 
 
 # saved model -> frozen model 변환한 모델 호출하여 wrap 하기 
+load_model = time.time()
 with tf.io.gfile.GFile(f"./frozen_models/frozen_{model_name}.pb", "rb") as f:
         graph_def = tf.compat.v1.GraphDef()
         graph_def.ParseFromString(f.read())
@@ -74,64 +82,39 @@ shape_dict = {"DecodeJpeg/contents": data.shape}
 ##### Convert tensorflow model 
 mod, params = relay.frontend.from_tensorflow(graph_def, layout=None, shape=shape_dict)
 print("Tensorflow protobuf imported to relay frontend.")
-
+print("-"*10,"Load frozen model",time.time()-load_model,"s","-"*10)
 
 target = "llvm"
 ctx = tvm.cpu()
 
-##### TVM compile style 1 
-# print("-"*50)
-# print("Compile style 1 : vm compile ")
-# print("-"*50)
-# with tvm.transform.PassContext(opt_level=3):
-#     exe = relay.vm.compile(mod,target=target, params=params)
-
-# vm = VirtualMachine(exe,ctx)
-# _out = vm.invoke("main",data)
-# # print(_out)
-
-# input_data = tvm.nd.array(data)
-# input_list = [input_data]
-# warm_iterations=10
-# measurements=5
-
-# for i in range(warm_iterations):    # warm up
-#     vm.run(input_list)
-
-# start_time = time.time()
-# for i in range(measurements):
-#     vm.run(input_list)
-# end_time = time.time()
-# tvm_time = end_time - start_time
-# print("VM runtime time elapsed", tvm_time/measurements)
-# print("\n")
 
 ##### TVM compile style 
-print("-"*50)
-print("Compile style : create_executor vm ")
-print("-"*50)
+print("-"*10,"Compile style : create_executor vm ","-"*10)
+build_time = time.time()
 with tvm.transform.PassContext(opt_level=3):
-    executor = relay.build_module.create_executor("vm", mod, tvm.cpu(0), target)
+    # executor = relay.build_module.create_executor("vm", mod, tvm.cpu(0), target)
+    executor = relay.vm.compile(mod, target=target, params=params)
 
-# tasks = autotvm.task.extract_from_program(
-#     mod["main"], target=target, params=params)
-# )
+print("-"*10,"Build latency : ",time.time()-build_time,"s","-"*10)
 
-executor.evaluate()(data,**params)
+# executor.evaluate()(data,**params)
+vm = VirtualMachine(executor,ctx)
+_out = vm.invoke("main",data)
+
 
 input_data = tvm.nd.array(data)
-input_list = [input_data]
-warm_iterations=10
+warm_iterations=3
 measurements=5
 
-input_list = [input_data]
 for i in range(warm_iterations):    # warm up
-    executor.evaluate()(input_data, **params)
+    vm.run(input_data)
 
-start_time = time.time()
+iter_times = []
 for i in range(measurements):
-    executor.evaluate()(input_data, **params)
-end_time = time.time()
-tvm_time = end_time - start_time
-print(f"VM {model_name} runtime time elapsed", tvm_time/measurements,"s")
+    start_time = time.time()
+    vm.run(input_data)
+    print(f"VM {model_name}-{batch_size} inference latency : ",(time.time()-start_time)*1000,"ms")
+    iter_times.append(time.time() - start_time)
+
+print(f"VM {model_name}-{batch_size} inference mean latency ",np.mean(iter_times) * 1000 ,"ms")
 print("\n")
