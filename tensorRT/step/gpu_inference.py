@@ -171,7 +171,8 @@ def predict_GPU(batch_size,saved_model_dir):
                 _ = model(validation_ds)
         start_time = time.time()
         #pred_prob_keras = model(validation_ds)
-        pred_prob_keras = model.predict(validation_ds)
+        with tf.device("/device:GPU:0"):
+            pred_prob_keras = model.predict(validation_ds)
         iter_times.append(time.time() - start_time)
         
         actual_labels.extend(label for label_list in batch_labels.numpy() for label in label_list)
