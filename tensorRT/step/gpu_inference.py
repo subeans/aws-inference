@@ -130,7 +130,7 @@ def val_preprocessing(record):
     return image, label, label_text
 
 def get_dataset(batch_size,datafolder, use_cache=False):
-    data_dir = f'/root/{datafolder}/*'
+    data_dir = f'/home/ubuntu/{datafolder}/*'
     files = tf.io.gfile.glob(os.path.join(data_dir))
     dataset = tf.data.TFRecordDataset(files)
     
